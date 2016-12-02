@@ -15,7 +15,7 @@ var entity = {
     "position": [
         0,
         2.5,
-        5
+        0
     ],
     "scale": [
         1,
@@ -40,6 +40,38 @@ var entity = {
             "type": "box",
             "lightMapped": false,
             "isStatic": false
+        },
+        "rigidbody": {
+            "enabled": true,
+            "type": "dynamic",
+            "mass": 3,
+            "linearDamping": 0.5,
+            "angularDamping": 0.5,
+            "linearFactor": [
+                1,
+                1,
+                1
+            ],
+            "angularFactor": [
+                0,
+                0,
+                0
+            ],
+            "friction": 0.75,
+            "restitution": 0.5
+        },
+        "collision": {
+            "enabled": true,
+            "type": "box",
+            "halfExtents": [
+                0.5,
+                0.5,
+                0.5
+            ],
+            "radius": 0.5,
+            "axis": 1,
+            "height": 2,
+            "asset": null
         }
     },
     "rotation": [
@@ -51,6 +83,8 @@ var entity = {
     "children": [],
     "tags": []
 };
+
+
 
 var assets = {
     "5816460": {
