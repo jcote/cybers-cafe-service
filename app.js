@@ -26,6 +26,34 @@ io.sockets.on('connection', function(socket) {
 
             socket.emit ('playerData', {id: idNum, players: players});
             socket.broadcast.emit ('playerJoined', newPlayer);
+
+            getModel().list('Asset', 10, null, function (err, assets, cursor) {
+                if (err) {
+                  console.log("db asset list error: " + err);
+                  return err;
+                }
+
+                for (var key in assets) {
+                    var data = {};
+                    data.asset = assets[key];            
+                    socket.emit('addAsset', data);
+                    console.log('emit asset');
+                }
+            });
+
+            getModel().list('Entity', 10, null, function (err, entities, cursor) {
+                if (err) {
+                  console.log("db entity list error: " + err);
+                  return err;
+                }
+
+                for (var key in entities) {
+                    var data = {};
+                    data.entity = entities[key];
+                    socket.emit('addEntity', data);
+                    console.log('emit entity');
+                }
+            });
     });
 
     socket.on ('positionUpdate', function (data) {
@@ -37,36 +65,6 @@ io.sockets.on('connection', function(socket) {
         socket.broadcast.emit ('playerMoved', data);
     });
 
-    socket.on ('getEntity', function () {
-        console.log("getEntity");
-        getModel().list('Asset', 10, null, function (err, assets, cursor) {
-            if (err) {
-              console.log("db asset list error: " + err);
-              return err;
-            }
-
-            for (var key in assets) {
-                var data = {};
-                data.asset = assets[key];            
-                socket.emit('addAsset', data);
-                console.log('emit asset');
-            }
-        });
-
-        getModel().list('Entity', 10, null, function (err, entities, cursor) {
-            if (err) {
-              console.log("db entity list error: " + err);
-              return err;
-            }
-
-            for (var key in entities) {
-                var data = {};
-                data.entity = entities[key];
-                socket.emit('addEntity', data);
-                console.log('emit entity');
-            }
-        });
-    });
 });
 
 console.log ('Server listening on port 59595.');
