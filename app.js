@@ -27,6 +27,7 @@ io.sockets.on('connection', function(socket) {
             socket.emit ('playerData', {id: idNum, players: players});
             socket.broadcast.emit ('playerJoined', newPlayer);
 
+            // TODO: prevent field 'id' from being overwritten with google datastore id
             getModel().list('Asset', 10, null, function (err, assets, cursor) {
                 if (err) {
                   console.log("db asset list error: " + err);
@@ -41,6 +42,7 @@ io.sockets.on('connection', function(socket) {
                 }
             });
 
+            // TODO: prevent field 'id' from being overwritten with google datastore id
             getModel().list('Entity', 10, null, function (err, entities, cursor) {
                 if (err) {
                   console.log("db entity list error: " + err);
