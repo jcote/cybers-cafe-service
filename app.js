@@ -1,6 +1,7 @@
 var server = require('http').createServer();
 var io = require('socket.io')(server);
 var config = require('./config');
+const async = require('async');
 
 function getModel () {
   return require('./entities/model-' + config.get('DATA_BACKEND'));
@@ -27,36 +28,54 @@ io.sockets.on('connection', function(socket) {
             socket.emit ('playerData', {id: idNum, players: players});
             socket.broadcast.emit ('playerJoined', newPlayer);
 
-            // TODO: prevent field 'id' from being overwritten with google datastore id
-            getModel().list('Asset', 10, null, function (err, assets, cursor) {
-                if (err) {
-                  console.log("db asset list error: " + err);
-                  return err;
-                }
-
-                for (var key in assets) {
-                    var data = {};
-                    data.asset = assets[key];            
-                    socket.emit('addAsset', data);
-                    console.log('emit asset');
-                }
-            });
-
-            // TODO: prevent field 'id' from being overwritten with google datastore id
+            var point = [newPlayer.x, newPlayer.y, newPlayer.z];
             getModel().list('Entity', 10, null, function (err, entities, cursor) {
                 if (err) {
                   console.log("db entity list error: " + err);
                   return err;
                 }
 
+                var dependentAssetIds = [];
+
                 for (var key in entities) {
-                    var data = {};
-                    data.entity = entities[key];
-                    socket.emit('addEntity', data);
-                    console.log('emit entity');
+                    var entity = entities[key];
+                    if ('assetIds' in entity && Array.isArray(entity.assetIds) && entity.assetIds.length > 0) {
+                      dependentAssetIds = dependentAssetIds.concat(entity.assetIds);
+                      console.log('added ' + entity.assetIds.length + ' depenent asset ids');
+                    }
                 }
+                
+                async.each(dependentAssetIds, function(assetId, callback) {
+                    getModel().read('Asset', assetId, function (err, asset) {
+                        if (err) {
+                            console.log("db asset read error: " + err);
+                            callback(err);
+                        } else {
+                            var data = {};
+                            data.asset = asset;            
+                            socket.emit('addAsset', data);
+                            console.log('emit asset');
+                            callback();
+                        }
+                    });
+                  }, function(err, results) {
+                    // after all the callbacks
+                    if (err) {
+                        console.log('error reading assets: ' + err);
+                    } else {
+                        console.log('done reading assets');
+                        for (key in entities) {
+                            var entity = entities[key];
+                            var data = {};
+                            data.entity = entity.entity;
+                            socket.emit('addEntity', data);
+                            console.log('emit entity');
+                        }
+                    }
+                });            
             });
-    });
+        });
+
 
     socket.on ('positionUpdate', function (data) {
         if (players[data.id]) {
