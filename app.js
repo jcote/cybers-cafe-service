@@ -18,6 +18,45 @@ function Player (id) {
     this.entity = null;
 }
 
+function emitAsset (socket, asset) {
+    var data = {};
+    data.asset = asset;            
+    socket.emit('addAsset', data);
+    console.log('emit asset ' + asset.id);
+}
+
+function emitEntity (socket, entity) {
+    var data = {};
+    data.entity = entity;
+    socket.emit('addEntity', data);
+    console.log('emit entity ' + entity.id);
+}
+
+function emitAssetsAndEntity(socket, entityRecord, cb) {
+  // read & send dependent assets for entity record
+  async.each(entityRecord.assetIds, function(assetId, callback) {    
+    getModel().read('Asset', assetId, function (err, asset) {
+        if (err) {
+            console.log("db asset read error: " + err);
+            callback(err);
+        }
+        emitAsset(socket, asset);
+        callback();
+    });
+  }, function(err, results) {
+    if (err) {
+        console.log('error reading assets: ' + err);
+        return cb(err);
+    }
+    // after all its assets have transmitted
+    // read & transmit the entity
+    getModel().read('Entity', entityRecord.id, function(err, entity) {
+        emitEntity(socket, entity);
+        cb();
+    });
+  });
+}
+
 io.sockets.on('connection', function(socket) {
     socket.on ('initialize', function () {
             var idNum = players.length;
@@ -36,37 +75,17 @@ io.sockets.on('connection', function(socket) {
                   return err;
                 }
 
-                for (key in entities) {
-                  // read & send dependent assets
+                async.each(Object.keys(entities), function(key, cb) {
                   var entityRecord = entities[key];
-                  async.each(entityRecord.assetIds, function(assetId, callback) {
-                    getModel().read('Asset', assetId, function (err, asset) {
-                        if (err) {
-                            console.log("db asset read error: " + err);
-                            callback(err);
-                        } else {
-                            var data = {};
-                            data.asset = asset;            
-                            socket.emit('addAsset', data);
-                            console.log('emit asset ' + asset.id);
-                            callback();
-                        }
+                  if (entityRecord.assetIds.length == 0) {
+                    getModel().read('Entity', key, function(err, entity) {
+                        emitEntity(socket, entity);
+                        cb();
                     });
-                  }, function(err, results) {
-                    // after all its assets have transmitted
-                    // read & transmit the entity
-                    if (err) {
-                        console.log('error reading assets: ' + err);
-                    } else {
-                        getModel().read('Entity', entityRecord.id, function(err, entity) {
-                            var data = {};
-                            data.entity = entity;
-                            socket.emit('addEntity', data);
-                            console.log('emit entity ' + entity.id);
-                        });
-                    }
-                  });
-                }                         
+                  } else {
+                    emitAssetsAndEntity(socket, entityRecord, cb);
+                  }
+                });                      
             });
         });
 
