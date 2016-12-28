@@ -123,7 +123,7 @@ function listEntityRecords (point, range, limit, token, callback) {
       	// obtain all dependent asset ids for entity
       	connection.query('SELECT * FROM dependencies WHERE entityId = ?', entityRecord.id, function (err, results) {
           if (err) {
-            return callback(err);
+            return cb(err);
 	      }
 	      // process the entityRecord and its dependent assetIds together for single object format
 	      cb(null, fromSqlStore(entityRecord, results));
