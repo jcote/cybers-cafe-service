@@ -2,6 +2,7 @@ var server = require('http').createServer();
 var io = require('socket.io')(server);
 var config = require('./config');
 const async = require('async');
+const sqlRecord = require('./entities/records-cloudsql');
 
 function getModel () {
   return require('./entities/model-' + config.get('DATA_BACKEND'));
@@ -29,23 +30,16 @@ io.sockets.on('connection', function(socket) {
             socket.broadcast.emit ('playerJoined', newPlayer);
 
             var point = [newPlayer.x, newPlayer.y, newPlayer.z];
-            getModel().list('Entity', 10, null, function (err, entities, cursor) {
+            sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
                 if (err) {
                   console.log("db entity list error: " + err);
                   return err;
                 }
 
-                var dependentAssetIds = [];
-
-                for (var key in entities) {
-                    var entity = entities[key];
-                    if ('assetIds' in entity && Array.isArray(entity.assetIds) && entity.assetIds.length > 0) {
-                      dependentAssetIds = dependentAssetIds.concat(entity.assetIds);
-                      console.log('added ' + entity.assetIds.length + ' depenent asset ids');
-                    }
-                }
-                
-                async.each(dependentAssetIds, function(assetId, callback) {
+                for (key in entities) {
+                  // read & send dependent assets
+                  var entityRecord = entities[key];
+                  async.each(entityRecord.assetIds, function(assetId, callback) {
                     getModel().read('Asset', assetId, function (err, asset) {
                         if (err) {
                             console.log("db asset read error: " + err);
@@ -54,25 +48,25 @@ io.sockets.on('connection', function(socket) {
                             var data = {};
                             data.asset = asset;            
                             socket.emit('addAsset', data);
-                            console.log('emit asset');
+                            console.log('emit asset ' + asset.id);
                             callback();
                         }
                     });
                   }, function(err, results) {
-                    // after all the callbacks
+                    // after all its assets have transmitted
+                    // read & transmit the entity
                     if (err) {
                         console.log('error reading assets: ' + err);
                     } else {
-                        console.log('done reading assets');
-                        for (key in entities) {
-                            var entity = entities[key];
+                        getModel().read('Entity', entityRecord.id, function(err, entity) {
                             var data = {};
-                            data.entity = entity.entity;
+                            data.entity = entity;
                             socket.emit('addEntity', data);
-                            console.log('emit entity');
-                        }
+                            console.log('emit entity ' + entity.id);
+                        });
                     }
-                });            
+                  });
+                }                         
             });
         });
 
