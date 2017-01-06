@@ -2,6 +2,7 @@
 'use strict';
 
 var express = require('express');
+var config = require('../config');
 var mysql = require('mysql');
 var crypto = require('crypto');
 const async = require('async');
@@ -10,10 +11,10 @@ var connection;
 
 function handleDisconnect() {
   connection = mysql.createConnection({
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    socketPath: process.env.MYSQL_SOCKET_PATH,
-    database: process.env.MYSQL_DATABASE
+    user: config.get("MYSQL_USER"),
+    password: config.get("MYSQL_PASSWORD"),
+    socketPath: config.get("MYSQL_SOCKET_PATH"),
+    database: config.get("MYSQL_DATABASE")
   });                                             // Recreate the connection, since
                                                   // the old one cannot be reused.
 
