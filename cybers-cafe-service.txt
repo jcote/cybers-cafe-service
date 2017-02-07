@@ -1,7 +1,7 @@
 /etc/systemd/system/cybers-cafe-service.service
 [Unit]
 Description=Cybers Cafe socket service daemon
-After=syslog.target network.target auditd.service
+After=sql-proxy.service syslog.target network.target auditd.service
 [Service]
 ExecStart=/usr/bin/node /home/jordocote/cybers-cafe-service/app.js
 Restart=always

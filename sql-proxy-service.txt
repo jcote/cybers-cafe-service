@@ -1,0 +1,14 @@
+/etc/systemd/system/sql-proxy.service
+[Unit]
+Description=Cloud SQL proxy service daemon
+After=syslog.target network.target auditd.service
+[Service]
+ExecStart=/home/jordocote/cloud_sql_proxy -instances=cybers-cafe:us-east1:cybers-cafe=tcp:3306
+Restart=always
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=cloud_sql_proxy
+User=cybers
+Group=cybers
+[Install]
+WantedBy=cybers-cafe-service.service
