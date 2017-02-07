@@ -40,7 +40,9 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
             console.log("db asset read error: " + err);
             callback(err);
         }
-        emitAsset(socket, asset);
+        if (asset) {
+          emitAsset(socket, asset);
+        }
         callback();
     });
   }, function(err, results) {
@@ -51,7 +53,9 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     // after all its assets have transmitted
     // read & transmit the entity
     getModel().read('Entity', entityRecord.id, function(err, entity) {
-        emitEntity(socket, entity);
+        if (entity) {
+          emitEntity(socket, entity);
+        }
         cb();
     });
   });
@@ -79,7 +83,9 @@ io.sockets.on('connection', function(socket) {
                   var entityRecord = entities[key];
                   if (entityRecord.assetIds.length == 0) {
                     getModel().read('Entity', key, function(err, entity) {
-                        emitEntity(socket, entity);
+                        if (entity) {
+                          emitEntity(socket, entity);
+                        }
                         cb();
                     });
                   } else {
