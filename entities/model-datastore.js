@@ -103,35 +103,6 @@ function list (kind, limit, token, cb) {
 }
 // [END list]
 
-// Lists all entities in the Datastore within range of a point.
-// The ``limit`` argument determines the maximum amount of results to
-// return per page. The ``token`` argument allows requesting additional
-// pages. The callback is invoked with ``(err, entities, nextPageToken)``.
-// [START listEntitiesInRange]
-function listEntitiesInRange (point, range, limit, token, cb) {
-  var x = point[0];
-  var y = point[1];
-  var z = point[2];
-  var q = ds.createQuery(['Entity'])
-    .limit(limit)
-    .filter('posX', '<=', x+range)
-    .filter('posX', '>=', x-range)
-    .filter('posY', '<=', y+range)
-    .filter('posY', '>=', y-range)
-    .filter('posZ', '<=', z+range)
-    .filter('posZ', '>=', z-range)
-    .start(token);
-
-  ds.runQuery(q, function (err, entities, nextQuery) {
-    if (err) {
-      return cb(err);
-    }
-    var hasMore = nextQuery.moreResults !== Datastore.NO_MORE_RESULTS ? nextQuery.endCursor : false;
-    cb(null, entities.map(fromDatastore), hasMore);
-  });
-}
-// [END listEntitiesInRange]
-
 // Creates a new entity or updates an existing entity with new data. The provided
 // data is automatically translated into Datastore format. The entity will be
 // queued for background processing.
@@ -175,6 +146,26 @@ function read (kind, id, cb) {
   });
 }
 
+function getHighestId (kind, cb) {
+  const query = ds.createQuery(kind)
+    .order('id', {
+      descending: true
+    })
+    .limit(1);
+
+  ds.runQuery(query, function (err, results, cursor) {
+      if (err) {
+        return cb(err);
+      }
+      if (results.length > 0) {
+        const id = results[0].key.id;
+        cb(null, id);
+      } else {
+        cb(null, 10000000);
+      }
+    });
+}
+
 function _delete (kind, id, cb) {
   var key = ds.key([kind, parseInt(id, 10)]);
   ds.delete(key, cb);
@@ -188,6 +179,7 @@ module.exports = {
   read: read,
   update: update,
   delete: _delete,
+  getHighestId: getHighestId,
   list: list
 };
 // [END exports]

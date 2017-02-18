@@ -21,10 +21,8 @@ function handleDisconnect() {
   connection.connect(function(err) {              // The server is either down
     if(err) {                                     // or restarting (takes a while sometimes).
       console.log('error when connecting to db:', err);
-      setTimeout(handleDisconnect, 2000);        // We introduce a delay before attempting to reconnect,
-    } else {                                     // to avoid a hot loop, and to allow our node script to
-      console.log("connected mysql");
-    }
+      setTimeout(handleDisconnect, 2000); // We introduce a delay before attempting to reconnect,
+    }                                     // to avoid a hot loop, and to allow our node script to
   });                                     // process asynchronous requests in the meantime.
                                           // If you're also serving http, display a 503 error.
   connection.on('error', function(err) {
@@ -44,22 +42,22 @@ function toSqlStore (obj) {
   var dependencyRecords = [];
   var results = {};
   
-  if (!obj.hasOwnProperty('id') || obj.id === undefined) {
-  	console.error('Attempted to write to Sql record without id');
-  	return null;
+  if (!obj.hasOwnProperty('objectId') || obj.objectId === undefined) {
+    console.error('Attempted to write to Sql record without objectId');
+    return null;
   }
   
   Object.keys(obj).forEach(function (k) {
-  	if (k == "assetIds") {
-  	  for (var i = 0; i < obj.assetIds.length; i++) {
+    if (k == "assetIds") {
+      for (var i = 0; i < obj.assetIds.length; i++) {
         dependencyRecords.push({
-      	  entityId: obj.id,
-      	  assetId: obj.assetIds[i]
-      	});
+          objectId: obj.objectId,
+          assetId: obj.assetIds[i]
+        });
 
-  	  }
-  	  return; // "continue"
-  	}
+      }
+      return; // "continue"
+    }
 
     if (obj[k] === undefined) {
       return;
@@ -80,11 +78,11 @@ function fromSqlStore (entityRecord, dependencyRecords) {
   });
 
   if (Array.isArray(dependencyRecords)) {
-  	for (var i = 0; i < dependencyRecords.length; i++) {
-  		if (!('assetId' in dependencyRecords[i])) {
-  			console.error('No assetId in dependencyRecord of entity ' + entityRecord.id);
-  			continue;
-  		}
+    for (var i = 0; i < dependencyRecords.length; i++) {
+      if (!('assetId' in dependencyRecords[i])) {
+        console.error('No assetId in dependencyRecord of entity ' + entityRecord.id);
+        continue;
+      }
       entity.assetIds.push(dependencyRecords[i].assetId);
     }
   }
@@ -98,7 +96,7 @@ function reformDependencyRecords (dependencyRecords) {
   for (var i = 0; i < dependencyRecords.length; i++) {
     out.push([
       dependencyRecords[i].assetId, 
-      dependencyRecords[i].entityId
+      dependencyRecords[i].objectId
       ]);
   }
   return [out];
@@ -112,26 +110,26 @@ function insertEntityRecord (entityRecord, callback) {
   var entityRecord = results.entityRecord;
   var dependencyRecords = results.dependencyRecords;
 
-  connection.query('INSERT INTO entities SET ?', entityRecord, function (err) {
+  connection.query('INSERT INTO entities SET ?', entityRecord, function (err, result) {
     if (err) {
       return callback(err);
     }
     if (dependencyRecords.length > 0) {
-	    connection.query('INSERT INTO dependencies (assetId, entityId) VALUES ?', reformDependencyRecords(dependencyRecords), function (err, result) {
-	      if (err) {
-	        return callback(err);
-	      }
-        if (dependencyRecords.length > result.affectedRows) {
-          console.error("inserting dependencies for " + entityRecord.id + " has failed");
-          console.error(dependencyRecords);
-          return callback({message: "only " + result.affectedRows + "/" + dependencyRecords.length + "dependency records were updated for entity id " + entityRecord.id});
+      connection.query('INSERT INTO dependencies (assetId, objectId) VALUES ?', reformDependencyRecords(dependencyRecords), function (dErr, dResult) {
+        if (dErr) {
+          return callback(dErr);
         }
-	      console.log("Entity and " + dependencyRecords.length + " dependency records stored in SQL for id: " + entityRecord.id);
-	      return callback();
-	    });
+        if (dependencyRecords.length > dResult.affectedRows) {
+          console.error("inserting dependencies for " + result.insertId + " has failed");
+          console.error(dependencyRecords);
+          return callback({message: "only " + dResult.affectedRows + "/" + dependencyRecords.length + "dependency records were updated for entity id " + entityRecord.id});
+        }
+        console.log("Entity and " + dependencyRecords.length + " dependency records stored in SQL for id: " + result.insertId);
+        return callback(null, result.insertId);
+      });
     } else {
-        console.log("Entity record stored in SQL for id: " + entityRecord.id);
-	    return callback();
+      console.log("Entity record stored in SQL for id: " + result.insertId);
+      return callback(null, result.insertId);
     }
   });
 }
@@ -147,46 +145,58 @@ function listEntityRecords (point, range, limit, token, callback) {
 
   // obtain all entities within bounding box from point position
   connection.query('SELECT * FROM entities ' +
-  	'WHERE posX < ? ' +
-  	'AND posX > ? ' +
-  	'AND posY < ? ' +
-  	'AND posY > ? ' +
-  	'AND posZ < ? ' +
-  	'AND posZ > ? ' +
-  	'LIMIT ? ' +
-  	'OFFSET ?',
-  	[x + range, x - range, y + range, y - range, z + range, z - range, limit, token ], 
-  	function (err, results) {
+    'WHERE posX < ? ' +
+    'AND posX > ? ' +
+    'AND posY < ? ' +
+    'AND posY > ? ' +
+    'AND posZ < ? ' +
+    'AND posZ > ? ' +
+    'LIMIT ? ' +
+    'OFFSET ?',
+    [x + range, x - range, y + range, y - range, z + range, z - range, limit, token ], 
+    function (err, results) {
       if (err) {
         return callback(err);
       }
       var hasMore = results.length === limit ? token + results.length : false;
       async.concat(results, function (entityRecord, cb) {
-      	// obtain all dependent asset ids for entity
-      	connection.query('SELECT * FROM dependencies WHERE entityId = ?', entityRecord.id, function (err, results) {
+        // obtain all dependent asset ids for entity
+        connection.query('SELECT * FROM dependencies WHERE objectId = ?', entityRecord.objectId, function (err, results) {
           if (err) {
             return cb(err);
-	      }
-	      // process the entityRecord and its dependent assetIds together for single object format
-	      cb(null, fromSqlStore(entityRecord, results));
+        }
+        // process the entityRecord and its dependent assetIds together for single object format
+        cb(null, fromSqlStore(entityRecord, results));
         });
       }, function (err, results) {
-      	// after all dependencies have been queried and processed
-      	if (err) {
-      	  return callback(err);
-      	}
-      	var res = {};
-      	for (var i = 0; i < results.length; i++) {
+        // after all dependencies have been queried and processed
+        if (err) {
+          return callback(err);
+        }
+        var res = {};
+        for (var i = 0; i < results.length; i++) {
           var entityRecord = results[i];
           res[entityRecord.id] = entityRecord;
-      	}
+        }
         callback(null, res, hasMore);
       });
     });
 }
 
+function updateEntityRecordPos(id, posX, posY, posZ, callback) {
+  var posSet = {posX: posX, posY: posY, posZ: posZ};
+  connection.query('UPDATE entities SET ? WHERE id = ?', posSet, id, function (err) {
+    if (err) {
+      return callback(err);
+    }
+    console.log("Entity record updated in SQL for id: " + id + " to pos: " + posX + "," + posY + "," + posZ);
+    return callback();
+  });
+}
+
 
 module.exports = {
   insertEntityRecord: insertEntityRecord,
-  listEntityRecords: listEntityRecords
+  listEntityRecords: listEntityRecords,
+  updateEntityRecordPos: updateEntityRecordPos
 };

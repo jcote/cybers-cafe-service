@@ -52,8 +52,10 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     }
     // after all its assets have transmitted
     // read & transmit the entity
-    getModel().read('Entity', entityRecord.id, function(err, entity) {
+    getModel().read('Entity', entityRecord.objectId, function(err, entity) {
         if (entity) {
+          entity.objectId = entity.id;
+          entity.id = entityRecord.id;
           emitEntity(socket, entity);
         }
         cb();
@@ -82,7 +84,7 @@ io.sockets.on('connection', function(socket) {
                 async.each(Object.keys(entities), function(key, cb) {
                   var entityRecord = entities[key];
                   if (entityRecord.assetIds.length == 0) {
-                    getModel().read('Entity', key, function(err, entity) {
+                    getModel().read('Entity', entityRecord.objectId, function(err, entity) {
                         if (entity) {
                           emitEntity(socket, entity);
                         }
