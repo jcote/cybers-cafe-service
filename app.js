@@ -56,6 +56,7 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
         if (entity) {
           entity.objectId = entity.id;
           entity.id = entityRecord.id;
+          entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
           emitEntity(socket, entity);
         }
         cb();
@@ -86,6 +87,9 @@ io.sockets.on('connection', function(socket) {
                   if (entityRecord.assetIds.length == 0) {
                     getModel().read('Entity', entityRecord.objectId, function(err, entity) {
                         if (entity) {
+                          entity.objectId = entity.id;
+                          entity.id = entityRecord.id;
+                          entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
                           emitEntity(socket, entity);
                         }
                         cb();
