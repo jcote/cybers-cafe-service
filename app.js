@@ -25,7 +25,12 @@ function emitAsset (socket, asset) {
     console.log('emit asset ' + asset.id);
 }
 
-function emitEntity (socket, entity) {
+function emitEntity (socket, entity, entityRecord) {
+    entity.objectId = entity.id;
+    entity.id = entityRecord.id;
+    entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
+    entity.rotation = [ entityRecord.rotX, entityRecord.rotY, entityRecord.rotZ, entityRecord.rotW ];
+    entity.scale = [ entityRecord.sclX, entityRecord.sclY, entityRecord.sclZ ];
     var data = {};
     data.entity = entity;
     socket.emit('addEntity', data);
@@ -54,10 +59,7 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     // read & transmit the entity
     getModel().read('Entity', entityRecord.objectId, function(err, entity) {
         if (entity) {
-          entity.objectId = entity.id;
-          entity.id = entityRecord.id;
-          entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
-          emitEntity(socket, entity);
+          emitEntity(socket, entity, entityRecord);
         }
         cb();
     });
@@ -87,10 +89,7 @@ io.sockets.on('connection', function(socket) {
                   if (entityRecord.assetIds.length == 0) {
                     getModel().read('Entity', entityRecord.objectId, function(err, entity) {
                         if (entity) {
-                          entity.objectId = entity.id;
-                          entity.id = entityRecord.id;
-                          entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
-                          emitEntity(socket, entity);
+                          emitEntity(socket, entity, entityRecord);
                         }
                         cb();
                     });
