@@ -9,6 +9,7 @@ function getModel () {
 }
 
 var players = [];
+const timeoutInMs = 60000;
 
 function Player (id) {
     this.id = id;
@@ -16,6 +17,7 @@ function Player (id) {
     this.y = 0;
     this.z = 0;
     this.entity = null;
+    this.timestamp = Date.now();
 }
 
 function emitAsset (socket, asset) {
@@ -67,49 +69,77 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
 }
 
 io.sockets.on('connection', function(socket) {
+    // Create new player
     socket.on ('initialize', function () {
-            var idNum = players.length;
-            var newPlayer = new Player (idNum);
-            players.push (newPlayer);
+        var idNum = players.length;
+        var newPlayer = new Player (idNum);
+        players.push(newPlayer);
 
-             console.log ('Player joined (' + idNum + ').');
+         console.log ('Player joined (' + idNum + ').');
 
-            socket.emit ('playerData', {id: idNum, players: players});
-            socket.broadcast.emit ('playerJoined', newPlayer);
+        socket.emit ('playerData', {id: idNum, players: players});
+        socket.broadcast.emit ('playerJoined', newPlayer);
 
-            var point = [newPlayer.x, newPlayer.y, newPlayer.z];
-            sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
-                if (err) {
-                  console.log("db entity list error: " + err);
-                  return err;
-                }
+        // Transmit entities and assets in range
+        var point = [newPlayer.x, newPlayer.y, newPlayer.z];
+        sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
+            if (err) {
+              console.log("db entity list error: " + err);
+              return err;
+            }
 
-                async.each(Object.keys(entities), function(key, cb) {
-                  var entityRecord = entities[key];
-                  if (entityRecord.assetIds.length == 0) {
-                    getModel().read('Entity', entityRecord.objectId, function(err, entity) {
-                        if (entity) {
-                          emitEntity(socket, entity, entityRecord);
-                        }
-                        cb();
-                    });
-                  } else {
-                    emitAssetsAndEntity(socket, entityRecord, cb);
-                  }
-                });                      
-            });
+            async.each(Object.keys(entities), function(key, cb) {
+              var entityRecord = entities[key];
+              if (entityRecord.assetIds.length == 0) {
+                getModel().read('Entity', entityRecord.objectId, function(err, entity) {
+                    if (entity) {
+                      emitEntity(socket, entity, entityRecord);
+                    }
+                    cb();
+                });
+              } else {
+                emitAssetsAndEntity(socket, entityRecord, cb);
+              }
+            });                      
         });
+    });
 
+    socket.on ('ping', function(id) {
+        if (players[id]) {
+            players[id].timestamp = Date.now();
+        }
+    });
 
+    // Move players
     socket.on ('positionUpdate', function (data) {
         if (players[data.id]) {
             players[data.id].x = data.x;
             players[data.id].y = data.y;
             players[data.id].z = data.z;
+            players[data.id].timestamp = Date.now();
+            if (players[data.id].deleted) {
+                console.log("Player rejoined (" + data.id + ")");
+                socket.broadcast.emit ('playerJoined', players[data.id]);
+                delete players[data.id].deleted;
+            }
         }
         socket.broadcast.emit ('playerMoved', data);
     });
 
+    // Remove stale players
+    setInterval(function() {
+        currentTimeInMs = Date.now();
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].deleted) {
+                continue;
+            }
+            if ((currentTimeInMs - players[i].timestamp) > timeoutInMs) {
+                players[i].deleted = true;
+                socket.broadcast.emit ('playerDropped', players[i].id);
+                console.log("Player removed (" + players[i].id + ")");
+            }
+        }
+    }, 5000);
 });
 
 console.log ('Server listening on port 59595.');
