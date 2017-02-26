@@ -45,7 +45,7 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     getModel().read('Asset', assetId, function (err, asset) {
         if (err) {
             console.log("db asset read error: " + err);
-            callback(err);
+            return callback(err);
         }
         if (asset) {
           emitAsset(socket, asset);
@@ -60,6 +60,10 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     // after all its assets have transmitted
     // read & transmit the entity
     getModel().read('Entity', entityRecord.objectId, function(err, entity) {
+        if (err) {
+            console.log("db entity read error: " + err);
+            return callback(err);
+        }
         if (entity) {
           emitEntity(socket, entity, entityRecord);
         }
@@ -67,6 +71,38 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
     });
   });
 }
+
+function relayAssetsAndEntities(socket, point, callback) {
+    sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
+        if (err) {
+          console.log("sql entity list error: " + err);
+          return callback(err);
+        }
+
+        async.each(Object.keys(entities), function(key, cb) {
+          var entityRecord = entities[key];
+          if (entityRecord.assetIds.length == 0) {
+            getModel().read('Entity', entityRecord.objectId, function(err, entity) {
+                if (err) {
+                    console.log("db entity read error: " + err);
+                    return cb(err);
+                }
+                if (entity) {
+                  emitEntity(socket, entity, entityRecord);
+                }
+                cb();
+            });
+          } else {
+            emitAssetsAndEntity(socket, entityRecord, cb);
+          }
+        }, function(err, results) {
+            if (err) {
+                return callback(err);
+            }
+            callback();
+        });                      
+    });
+};
 
 io.sockets.on('connection', function(socket) {
     // Create new player
@@ -82,25 +118,10 @@ io.sockets.on('connection', function(socket) {
 
         // Transmit entities and assets in range
         var point = [newPlayer.x, newPlayer.y, newPlayer.z];
-        sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
+        relayAssetsAndEntities(socket, point, function(err) {
             if (err) {
-              console.log("db entity list error: " + err);
-              return err;
+                return err;
             }
-
-            async.each(Object.keys(entities), function(key, cb) {
-              var entityRecord = entities[key];
-              if (entityRecord.assetIds.length == 0) {
-                getModel().read('Entity', entityRecord.objectId, function(err, entity) {
-                    if (entity) {
-                      emitEntity(socket, entity, entityRecord);
-                    }
-                    cb();
-                });
-              } else {
-                emitAssetsAndEntity(socket, entityRecord, cb);
-              }
-            });                      
         });
     });
 
@@ -140,6 +161,10 @@ io.sockets.on('connection', function(socket) {
             }
         }
     }, 5000);
+
+    socket.on('error', function(err) {
+        console.log("Socket error: " + err);
+    });
 });
 
 console.log ('Server listening on port 59595.');
