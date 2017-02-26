@@ -73,7 +73,7 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
 }
 
 function relayAssetsAndEntities(socket, point, callback) {
-    sqlRecord.listEntityRecords(point, 10, 10, null, function (err, entities, hasMore) {
+    sqlRecord.listEntityRecords(point, 10, 50, null, function (err, entities, hasMore) {
         if (err) {
           console.log("sql entity list error: " + err);
           return callback(err);
