@@ -20,6 +20,10 @@ function Player (id) {
     this.timestamp = Date.now();
 }
 
+function emitExpect (socket, count) {
+    socket.emit('expect', count);
+}
+
 function emitAsset (socket, asset) {
     var data = {};
     data.asset = asset;            
@@ -40,6 +44,7 @@ function emitEntity (socket, entity, entityRecord) {
 }
 
 function emitAssetsAndEntity(socket, entityRecord, cb) {
+  emitExpect(socket, entityRecord.assetIds.length);
   // read & send dependent assets for entity record
   async.each(entityRecord.assetIds, function(assetId, callback) {    
     getModel().read('Asset', assetId, function (err, asset) {
@@ -78,6 +83,8 @@ function relayAssetsAndEntities(socket, point, callback) {
           console.log("sql entity list error: " + err);
           return callback(err);
         }
+        
+        emitExpect(socket, Object.keys(entities).length);
 
         async.each(Object.keys(entities), function(key, cb) {
           var entityRecord = entities[key];
