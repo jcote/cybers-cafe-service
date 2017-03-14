@@ -3,6 +3,7 @@ var io = require('socket.io')(server);
 var config = require('./config');
 const async = require('async');
 const sqlRecord = require('./entities/records-cloudsql');
+const mathUtils = require('./scripts/mathutils');
 
 function getModel () {
   return require('./entities/model-' + config.get('DATA_BACKEND'));
@@ -13,10 +14,8 @@ const timeoutInMs = 60000;
 
 function Player (id) {
     this.id = id;
-    this.x = 0;
-    this.y = 0;
-    this.z = 0;
-    this.entity = null;
+    this.location = [0, 0]; // in tile addressed by $(x, z) \in Z x Z$
+    this.position = [0, 0, 0]; // in space position relative to location tile center
     this.timestamp = Date.now();
 }
 
@@ -34,6 +33,7 @@ function emitAsset (socket, asset) {
 function emitEntity (socket, entity, entityRecord) {
     entity.objectId = entity.id;
     entity.id = entityRecord.id;
+    entity.location = [ entityRecord.locX, entityRecord.locZ ];
     entity.position = [ entityRecord.posX, entityRecord.posY, entityRecord.posZ ];
     entity.rotation = [ entityRecord.rotX, entityRecord.rotY, entityRecord.rotZ ];
     entity.scale = [ entityRecord.sclX, entityRecord.sclY, entityRecord.sclZ ];
@@ -77,8 +77,26 @@ function emitAssetsAndEntity(socket, entityRecord, cb) {
   });
 }
 
-function relayAssetsAndEntities(socket, point, callback) {
-    sqlRecord.listEntityRecords(point, 10, 50, null, function (err, entities, hasMore) {
+// locationPair specifies the center tile for querying entities
+// locationIngressPair specifies what side the player entered from so that it can determine
+//                     what entities have already been transmitted, ex: 
+//  ________
+// [  |  | x]  locationPair        := o (locX,locZ)
+// [  | o|  ]  locationIngressPair := x (1,1)
+// [__|__|__]
+//
+// intersection is removed from the locationPair bounding box
+// range specifies the size of bounding boxes
+function relayAssetsAndEntities(socket, locationPair, locationIngressPair, range, callback) {
+    var [locX, locZ] = locationPair;
+    // TODO: use locationIngressPair to compute smaller bounding box(es)
+    // TODO: use token
+    sqlRecord.listEntityRecords(
+            locX - range, 
+            locX + range, 
+            locZ - range, 
+            locZ + range, 
+            50, null, function (err, entities, hasMore) {
         if (err) {
           console.log("sql entity list error: " + err);
           return callback(err);
@@ -119,14 +137,16 @@ io.sockets.on('connection', function(socket) {
         players.push(newPlayer);
 
          console.log ('Player joined (' + idNum + ').');
-
+        // TODO: Place new players in somewhat random location
+        //       CLuster into 'happening' spots
         socket.emit ('playerData', {id: idNum, players: players});
         socket.broadcast.emit ('playerJoined', newPlayer);
 
         // Transmit entities and assets in range
-        var point = [newPlayer.x, newPlayer.y, newPlayer.z];
-        relayAssetsAndEntities(socket, point, function(err) {
+        var locationPair = [0, 0];
+        relayAssetsAndEntities(socket, locationPair, null, 2, function(err) {
             if (err) {
+                console.log("Relay error: " + err);
                 return err;
             }
         });
@@ -140,18 +160,30 @@ io.sockets.on('connection', function(socket) {
 
     // Move players
     socket.on ('positionUpdate', function (data) {
-        if (players[data.id]) {
-            players[data.id].x = data.x;
-            players[data.id].y = data.y;
-            players[data.id].z = data.z;
+        if (data.id in players) {
+            players[data.id].location = data.location;
+            players[data.id].position = data.position;
             players[data.id].timestamp = Date.now();
             if (players[data.id].deleted) {
                 console.log("Player rejoined (" + data.id + ")");
                 socket.broadcast.emit ('playerJoined', players[data.id]);
                 delete players[data.id].deleted;
             }
+            socket.broadcast.emit ('playerMoved', data); // TODO: purify 'data' before transmitting
         }
-        socket.broadcast.emit ('playerMoved', data);
+    });
+
+    socket.on('locationUpdate', function (data) {
+      // get tile select info & store by movement (known x,y) or by name (known)
+      // send new neighbor tile info
+      // send new entities
+      
+        // Transmit entities and assets in range
+        relayAssetsAndEntities(socket, data.location, null, 2, function(err) {
+            if (err) {
+                return err;
+            }
+        });
     });
 
     // Remove stale players
@@ -175,4 +207,8 @@ io.sockets.on('connection', function(socket) {
 });
 
 console.log ('Server listening on port 59595.');
-server.listen(59595);
+try {
+    server.listen(59595);
+} catch (err) {
+    console.log("Server error: " + err);
+}
