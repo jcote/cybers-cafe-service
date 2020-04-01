@@ -3,7 +3,7 @@
 Description=Cybers Cafe socket service daemon
 After=sql-proxy.service syslog.target network.target auditd.service
 [Service]
-ExecStart=/usr/bin/node /home/jordocote/cybers-cafe-service/app.js
+ExecStart=/usr/bin/node /home/latte/Code/cybers-cafe-service/app.js
 Restart=always
 StandardOutput=syslog
 StandardError=syslog

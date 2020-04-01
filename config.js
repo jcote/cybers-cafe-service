@@ -53,9 +53,9 @@ nconf
     MONGO_URL: 'mongodb://localhost:27017',
     MONGO_COLLECTION: 'books',
 
-    MYSQL_USER: '',
-    MYSQL_PASSWORD: '',
-    MYSQL_HOST: '',
+    MYSQL_USER: 'cyberscafe',
+    MYSQL_PASSWORD: 'sparkle8twilight',
+    MYSQL_HOST: 'localhost',
 
     // Port the HTTP server
     PORT: 8080

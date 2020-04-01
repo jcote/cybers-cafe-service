@@ -1,4 +1,3 @@
-
 'use strict';
 
 var express = require('express');
@@ -13,10 +12,11 @@ function handleDisconnect() {
   pool = mysql.createPool({
     connectionLimit : 10,
     acquireTimeout: 30000, //30 secs
-    user: config.get("MYSQL_USER"),
-    password: config.get("MYSQL_PASSWORD"),
-    socketPath: config.get("MYSQL_SOCKET_PATH"),
-    database: config.get("MYSQL_DATABASE")
+    user: process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    host: process.env.MYSQL_HOST,
+//    socketPath: process.env.MYSQL_SOCKET_PATH,
+    database: process.env.MYSQL_DATABASE
   });                                             // Recreate the connection, since
                                                   // the old one cannot be reused.
   pool.on('error', function(err) {
@@ -162,7 +162,6 @@ function listEntityRecords (minLocX, maxLocX, minLocZ, maxLocZ, limit, token, ca
         if (err) {
           return callback(err);
         }
-        console.log("Entity records listing: " + results.length);
         var hasMore = results.length === limit ? token + results.length : false;
         async.concat(results, function (entityRecord, cb) {
           // obtain all dependent asset ids for entity
