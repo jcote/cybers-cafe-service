@@ -1,4 +1,5 @@
-/etc/systemd/system/cybers-cafe-service.service
+put this in: /etc/systemd/system/cybers-cafe-service.service
+
 [Unit]
 Description=Cybers Cafe socket service daemon
 After=sql-proxy.service syslog.target network.target auditd.service

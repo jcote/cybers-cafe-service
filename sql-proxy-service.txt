@@ -1,9 +1,10 @@
-/etc/systemd/system/sql-proxy.service
+put this in: /etc/systemd/system/sql-proxy.service
+
 [Unit]
 Description=Cloud SQL proxy service daemon
 After=syslog.target network.target auditd.service
 [Service]
-ExecStart=/home/latte/cloud_sql_proxy -instances=cybers-cafe:us-east1:cybers-cafe=tcp:3306
+ExecStart=/home/latte/cloud_sql_proxy.sh
 Restart=always
 StandardOutput=syslog
 StandardError=syslog
