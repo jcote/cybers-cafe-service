@@ -28,7 +28,7 @@ function emitAsset (socket, asset) {
     data.asset = asset;            
     socket.emit('addAsset', data);
     console.log('emit asset ' + asset.id);
-//    console.log(asset);
+//    console.log(JSON.stringify(asset));
 }
 
 function emitEntity (socket, entity, entityRecord) {
@@ -42,7 +42,7 @@ function emitEntity (socket, entity, entityRecord) {
     data.entity = entity;
     socket.emit('addEntity', data);
     console.log('emit entity ' + entity.id);
-//    console.log(entity);
+//    console.log(JSON.stringify(entity));
 }
 
 function emitAssetsAndEntity(socket, entityRecord, cb) {
