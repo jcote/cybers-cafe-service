@@ -1,12 +1,11 @@
 var server = require('http').createServer();
 var io = require('socket.io')(server);
-var config = require('./config');
 const async = require('async');
 const sqlRecord = require('./entities/records-cloudsql');
 const mathUtils = require('./scripts/mathutils');
 
 function getModel () {
-  return require('./entities/model-' + config.get('DATA_BACKEND'));
+  return require('./entities/model-' + process.env.DATA_BACKEND);
 }
 
 var players = [];
@@ -208,9 +207,9 @@ io.sockets.on('connection', function(socket) {
     });
 });
 
-console.log ('Server listening on port 59595.');
+console.log ('Server listening on port ' + process.env.PORT);
 try {
-    server.listen(59595);
+    server.listen(process.env.PORT);
 } catch (err) {
     console.log("Server error: " + err);
 }

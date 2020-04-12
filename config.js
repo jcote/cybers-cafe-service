@@ -48,13 +48,8 @@ nconf
     
     CLOUD_BUCKET: '',
     
-    // MongoDB connection string
-    // https://docs.mongodb.org/manual/reference/connection-string/
-    MONGO_URL: 'mongodb://localhost:27017',
-    MONGO_COLLECTION: 'books',
-
-    MYSQL_USER: 'cyberscafe',
-    MYSQL_PASSWORD: 'sparkle8twilight',
+    MYSQL_USER: '',
+    MYSQL_PASSWORD: '',
     MYSQL_HOST: 'localhost',
 
     // Port the HTTP server
@@ -78,4 +73,8 @@ function checkConfig (setting) {
     throw new Error('You must set the ' + setting + ' environment variable or' +
       ' add it to config.json!');
   }
+}
+
+module.exports = {
+  nconf: nconf
 }
