@@ -45,7 +45,6 @@ function emitEntity (socket, entity, entityRecord) {
 }
 
 function emitAssetsAndEntity(socket, entityRecord, cb) {
-  emitExpect(socket, entityRecord.assetIds.length);
   // read & send dependent assets for entity record
   async.each(entityRecord.assetIds, function(assetId, callback) {    
     getModel().read('Asset', assetId, function (err, asset) {
@@ -97,30 +96,23 @@ function relayAssetsAndEntities(socket, locationPair, locationIngressPair, range
             locX + range, 
             locZ - range, 
             locZ + range, 
-            50, null, function (err, entities, hasMore) {
+            50, null, function (err, entityRecords, hasMore) {
         if (err) {
           console.log("sql entity list error: " + err);
           return callback(err);
         }
         
-        emitExpect(socket, Object.keys(entities).length);
+        var toExpect = 0;
+        for (var key in entityRecords) {
+          var entityRecord = entityRecords[key];
+          toExpect += entityRecord.assetIds.length;
+          toExpect++;
+        }
+        emitExpect(socket, toExpect);
 
-        async.each(Object.keys(entities), function(key, cb) {
-          var entityRecord = entities[key];
-          if (entityRecord.assetIds.length == 0) {
-            getModel().read('Entity', entityRecord.objectId, function(err, entity) {
-                if (err) {
-                    console.log("db entity read error: " + err);
-                    return cb(err);
-                }
-                if (entity) {
-                  emitEntity(socket, entity, entityRecord);
-                }
-                cb();
-            });
-          } else {
-            emitAssetsAndEntity(socket, entityRecord, cb);
-          }
+        async.each(Object.keys(entityRecords), function(key, cb) {
+          var entityRecord = entityRecords[key];
+          emitAssetsAndEntity(socket, entityRecord, cb);
         }, function(err, results) {
             if (err) {
                 return callback(err);
